@@ -5,26 +5,39 @@ class CubeSql
 	public $errorCode;
 	public $errorMessage;
 	public $socketTimeout;
-	private $socket;
 
-	public static function connect($host, $port, $username, $password, $database = null, $timeout = 10)
+	/**
+	 * Socket to the database.
+	 *
+	 * @var socket resource
+	 */
+	private $_socket;
+
+	/**
+	 * If the connection was established.
+	 *
+	 * @var boolean
+	 */
+	private $_isConnected = false;
+
+	public function __construct($host, $port, $username, $password, $database = null, $timeout = 10)
 	{
 		$this->_resetError();
 		$this->socketTimeout = $timeout;
 
 		// create socket
-		$this->socket = @socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-		if ($this->socket === false) {
+		$this->_socket = @socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+		if ($this->_socket === false) {
 			$this->_setSocketError();
-			return false;
+			return;
 		}
 
 		// connect socket
 		$ip = gethostbyname($host);
-		$result = @socket_connect($this->socket, $ip, $port);
+		$result = @socket_connect($this->_socket, $ip, $port);
 		if ($result === false) {
 			$this->_setSocketError();
-			return false;
+			return;
 		}
 
 		// generate randpool
@@ -45,19 +58,44 @@ class CubeSql
 		$this->errorCode = $data['errorCode'];
 		$this->errorMessage = ( array_key_exists( 'errorMsg', $data ) ? $data[ 'errorMsg' ] : NULL );
 
-		return !$this->isError();
-
-		if ($database !== null) {
-			$rc = $this->connect($host, $port, $username, $password, 12);
-			if ($rc === false) return $rc;
-
-			$this->execute("USE DATABASE $database;");
-			if ($rc === false) return $rc;
-
-			return !$this->isError();
-		}
+		$this->_isConnected = !$this->isError();
 	}
 
+	/**
+	 * Connect to a database
+	 * @param string $database
+	 *
+	 * @return boolean
+	 */
+	public function useDatabase($database)
+	{
+		if (!$this->_isConnected)
+			return false;
+
+		$rc = $this->execute(sprintf("USE DATABASE %s;", $database));
+		if ($rc === false)
+			return false;
+		else
+			return true;
+	}
+
+	/**
+	 * Check if a connection was established.
+	 *
+	 * @return boolean
+	 */
+	public function isConnected()
+	{
+		return $this->_isConnected;
+	}
+
+	/**
+	 * Execute an sql statement
+	 *
+	 * @param string $sql
+	 *
+	 * @return
+	 */
 	public function execute($sql)
 	{
 		$this->_resetError();
@@ -146,7 +184,7 @@ class CubeSql
 	private function _sendRequest($json_request)
 	{
 		// write request
-		$bytes = @socket_write($this->socket, $json_request);
+		$bytes = @socket_write($this->_socket, $json_request);
 		if ($bytes === false) {
 			$this->_setSocketError();
 			return;
@@ -158,7 +196,7 @@ class CubeSql
 		$buf = '';
 		$start = microtime(true);
 		while (1) {
-			$bytes = @socket_recv($this->socket, $buf, 8192, MSG_DONTWAIT);
+			$bytes = @socket_recv($this->_socket, $buf, 8192, MSG_DONTWAIT);
 			if ($bytes === false) {
 				$end = microtime(true);
 				$wait_time = ($end-$start) * 1000000;
