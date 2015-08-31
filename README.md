@@ -25,6 +25,7 @@ if ($db->useDatabase(CUBESQL_DATABASE)) {
 } else {
 	die(sprintf('Could not connect to database %s!' . "\n", CUBESQL_DATABASE));
 }
+```
 
 ## Changelog
 
