@@ -20,7 +20,7 @@ if ($db->isConnected()) {
 
 if ($db->useDatabase(CUBESQL_DATABASE)) {
 	echo('Connected to database');
-	var_dump($db->select("SELECT * FROM articles"))
+	var_dump($db->select("SELECT * FROM articles"));
 } else {
 	die(sprintf('Could not connect to database %s!', CUBESQL_DATABASE));
 }
